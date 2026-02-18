@@ -1,7 +1,7 @@
 import { buildApiHandler } from "@core/api"
 import * as path from "path"
 import * as vscode from "vscode"
-import { StateManager } from "@/core/storage/StateManager"
+import { Controller } from "@/core/controller"
 import { HostProvider } from "@/hosts/host-provider"
 import { DEFAULT_LANGUAGE_SETTINGS, getLanguageKey, LanguageDisplay } from "@/shared/Languages"
 import { ShowMessageType } from "@/shared/proto/host/window"
@@ -24,14 +24,14 @@ function getPrompt(languageKey: string) {
 		instruction: `Based on the provided git diff, generate a concise and descriptive commit message.
 
 The commit message should:
-1. Has a short title (50-72 characters)
+1. Have a short title (50-72 characters)
 2. The commit message should adhere to the conventional commit format
 3. Describe what was changed and why
 4. Be clear and informative${languageInstruction}`,
 	}
 }
 
-export async function generateCommitMsg(stateManager: StateManager, scm?: vscode.SourceControl) {
+export async function generateCommitMsg(controller: Controller, scm?: vscode.SourceControl) {
 	try {
 		// Read preferred language setting
 		const preferredLanguageRaw = stateManager.getGlobalSettingsKey("preferredLanguage")
@@ -119,7 +119,7 @@ async function filterForReposWithChanges(repos: any[]) {
 			if (gitDiff) {
 				reposWithChanges.push(repo)
 			}
-		} catch (error) {
+		} catch {
 			// Skip repositories with errors (no changes, etc.)
 		}
 	}
@@ -171,6 +171,14 @@ async function performCommitMsgGeneration(stateManager: StateManager, gitDiff: s
 		const PROMPT = getPrompt(languageKey)
 		const prompts = [PROMPT.instruction]
 
+		const workspaceManager = await controller.ensureWorkspaceManager()
+		if (workspaceManager) {
+			const workspacesJson = await workspaceManager.buildWorkspacesJson()
+			if (workspacesJson) {
+				prompts.push(`# Workspace Configuration\n${workspacesJson}`)
+			}
+		}
+
 		const currentInput = inputBox.value?.trim() || ""
 		if (currentInput) {
 			prompts.push(PROMPT.user.replace("{{USER_CURRENT_INPUT}}", currentInput))
@@ -178,11 +186,12 @@ async function performCommitMsgGeneration(stateManager: StateManager, gitDiff: s
 
 		const truncatedDiff = gitDiff.length > 5000 ? gitDiff.substring(0, 5000) + "\n\n[Diff truncated due to size]" : gitDiff
 		prompts.push(truncatedDiff)
+
 		const prompt = prompts.join("\n\n")
 
 		// Get the current API configuration
 		// Set to use Act mode for now by default
-		const apiConfiguration = stateManager.getApiConfiguration()
+		const apiConfiguration = controller.stateManager.getApiConfiguration()
 		const currentMode = "act"
 
 		// Build the API handler
