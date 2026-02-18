@@ -1,9 +1,9 @@
 import { buildApiHandler } from "@core/api"
 import * as path from "path"
 import * as vscode from "vscode"
-import { Controller } from "@/core/controller"
+import { type Controller } from "@/core/controller"
 import { HostProvider } from "@/hosts/host-provider"
-import { DEFAULT_LANGUAGE_SETTINGS, getLanguageKey, LanguageDisplay } from "@/shared/Languages"
+import { DEFAULT_LANGUAGE_SETTINGS, getLanguageKey, type LanguageDisplay } from "@/shared/Languages"
 import { ShowMessageType } from "@/shared/proto/host/window"
 import { Logger } from "@/shared/services/Logger"
 import { getGitDiff } from "@/utils/git"
@@ -34,7 +34,7 @@ The commit message should:
 export async function generateCommitMsg(controller: Controller, scm?: vscode.SourceControl) {
 	try {
 		// Read preferred language setting
-		const preferredLanguageRaw = stateManager.getGlobalSettingsKey("preferredLanguage")
+		const preferredLanguageRaw = controller.stateManager.getGlobalSettingsKey("preferredLanguage")
 		const languageKey = getLanguageKey(preferredLanguageRaw as LanguageDisplay)
 
 		const gitExtension = vscode.extensions.getExtension("vscode.git")?.exports
@@ -55,11 +55,11 @@ export async function generateCommitMsg(controller: Controller, scm?: vscode.Sou
 				throw new Error("Repository not found for provided SCM")
 			}
 
-			await generateCommitMsgForRepository(stateManager, repository, languageKey)
+			await generateCommitMsgForRepository(controller, repository, languageKey)
 			return
 		}
 
-		await orchestrateWorkspaceCommitMsgGeneration(stateManager, git.repositories, languageKey)
+		await orchestrateWorkspaceCommitMsgGeneration(controller, git.repositories, languageKey)
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error)
 		HostProvider.window.showMessage({
@@ -69,7 +69,7 @@ export async function generateCommitMsg(controller: Controller, scm?: vscode.Sou
 	}
 }
 
-async function orchestrateWorkspaceCommitMsgGeneration(stateManager: StateManager, repos: any[], languageKey: string) {
+async function orchestrateWorkspaceCommitMsgGeneration(controller: Controller, repos: any[], languageKey: string) {
 	const reposWithChanges = await filterForReposWithChanges(repos)
 
 	if (reposWithChanges.length === 0) {
@@ -83,7 +83,7 @@ async function orchestrateWorkspaceCommitMsgGeneration(stateManager: StateManage
 	if (reposWithChanges.length === 1) {
 		// Only one repo with changes, generate for it
 		const repo = reposWithChanges[0]
-		await generateCommitMsgForRepository(stateManager, repo, languageKey)
+		await generateCommitMsgForRepository(controller, repo, languageKey)
 		return
 	}
 
@@ -98,14 +98,14 @@ async function orchestrateWorkspaceCommitMsgGeneration(stateManager: StateManage
 		// Generate for all repositories with changes
 		for (const repo of reposWithChanges) {
 			try {
-				await generateCommitMsgForRepository(stateManager, repo, languageKey)
-			} catch (error) {
+				await generateCommitMsgForRepository(controller, repo, languageKey)
+			} catch (error: unknown) {
 				Logger.error(`Failed to generate commit message for ${repo.rootUri.fsPath}:`, error)
 			}
 		}
 	} else {
 		// Generate for selected repository
-		await generateCommitMsgForRepository(stateManager, selection.repo, languageKey)
+		await generateCommitMsgForRepository(controller, selection.repo, languageKey)
 	}
 }
 
@@ -145,7 +145,7 @@ async function promptRepoSelection(repos: any[]) {
 	})
 }
 
-async function generateCommitMsgForRepository(stateManager: StateManager, repository: any, languageKey: string) {
+async function generateCommitMsgForRepository(controller: Controller, repository: any, languageKey: string) {
 	const inputBox = repository.inputBox
 	const repoPath = repository.rootUri.fsPath
 	const gitDiff = await getGitDiff(repoPath)
@@ -160,11 +160,11 @@ async function generateCommitMsgForRepository(stateManager: StateManager, reposi
 			title: `Generating commit message for ${repoPath.split(path.sep).pop() || "repository"}...`,
 			cancellable: true,
 		},
-		() => performCommitMsgGeneration(stateManager, gitDiff, inputBox, languageKey),
+		() => performCommitMsgGeneration(controller, gitDiff, inputBox, languageKey),
 	)
 }
 
-async function performCommitMsgGeneration(stateManager: StateManager, gitDiff: string, inputBox: any, languageKey: string) {
+async function performCommitMsgGeneration(controller: Controller, gitDiff: string, inputBox: any, languageKey: string) {
 	try {
 		vscode.commands.executeCommand("setContext", "cline.isGeneratingCommit", true)
 
