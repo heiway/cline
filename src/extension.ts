@@ -52,7 +52,7 @@ import { ExtensionRegistryInfo } from "./registry"
 import { AuthService } from "./services/auth/AuthService"
 import { LogoutReason } from "./services/auth/types"
 import { telemetryService } from "./services/telemetry"
-import { SharedUriHandler } from "./services/uri/SharedUriHandler"
+import { SharedUriHandler, TASK_URI_PATH } from "./services/uri/SharedUriHandler"
 import { ShowMessageType } from "./shared/proto/host/window"
 import { fileExistsAtPath } from "./utils/fs"
 
@@ -151,7 +151,20 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const handleUri = async (uri: vscode.Uri) => {
 		const url = decodeURIComponent(uri.toString())
-		const success = await SharedUriHandler.handleUri(url)
+		const isTaskUri = getUriPath(url) === TASK_URI_PATH
+
+		if (isTaskUri) {
+			await openClineSidebarForTaskUri()
+		}
+
+		let success = await SharedUriHandler.handleUri(url)
+
+		// Task deeplinks can race with first-time sidebar initialization.
+		if (!success && isTaskUri) {
+			await openClineSidebarForTaskUri()
+			success = await SharedUriHandler.handleUri(url)
+		}
+
 		if (!success) {
 			Logger.warn("Extension URI handler: Failed to process URI:", uri.toString())
 		}
@@ -581,19 +594,20 @@ function setupHostProvider(context: ExtensionContext) {
 	const createCommentReview = () => getVscodeCommentReviewController()
 	const createTerminalManager = () => new VscodeTerminalManager()
 
-	const getCallbackUrl = async () => {
+	const getCallbackUrl = async (path: string) => {
+		const scheme = vscode.env.uriScheme || "vscode"
+		const callbackUri = vscode.Uri.parse(`${scheme}://${context.extension.id}${path}`)
+
 		if (vscode.env.uiKind === vscode.UIKind.Web) {
-			// In VS Code Web (code serve-web), vscode:// URIs redirect to the desktop app
-			// instead of staying in the browser. Use an HTTP-based callback server instead,
-			// which the browser can navigate to directly after auth completes.
-			const { AuthHandler } = await import("@/hosts/external/AuthHandler")
-			const authHandler = AuthHandler.getInstance()
-			authHandler.setEnabled(true)
-			return authHandler.getCallbackUrl()
+			// In VS Code Web (Codespaces, code serve-web), vscode:// URIs redirect to the
+			// desktop app instead of staying in the browser. Use asExternalUri to convert
+			// to a web-reachable HTTPS URL that routes back to the extension's URI handler.
+			const externalUri = await vscode.env.asExternalUri(callbackUri)
+			return externalUri.toString(true)
 		}
+
 		// In regular desktop VS Code, use the vscode:// URI protocol handler directly.
-		const baseUri = vscode.Uri.parse(`${vscode.env.uriScheme || "vscode"}://${context.extension.id}`)
-		return baseUri.toString(true)
+		return callbackUri.toString(true)
 	}
 	HostProvider.initialize(
 		createWebview,
@@ -607,6 +621,31 @@ function setupHostProvider(context: ExtensionContext) {
 		context.extensionUri.fsPath,
 		context.globalStorageUri.fsPath,
 	)
+}
+
+function getUriPath(url: string): string | undefined {
+	try {
+		return new URL(url).pathname
+	} catch {
+		return undefined
+	}
+}
+
+async function openClineSidebarForTaskUri(): Promise<void> {
+	const sidebarWaitTimeoutMs = 3000
+	const sidebarWaitIntervalMs = 50
+
+	await vscode.commands.executeCommand(`${ExtensionRegistryInfo.views.Sidebar}.focus`)
+
+	const startedAt = Date.now()
+	while (Date.now() - startedAt < sidebarWaitTimeoutMs) {
+		if (WebviewProvider.getVisibleInstance()) {
+			return
+		}
+		await new Promise((resolve) => setTimeout(resolve, sidebarWaitIntervalMs))
+	}
+
+	Logger.warn("Task URI handling timed out waiting for Cline sidebar visibility")
 }
 
 async function getBinaryLocation(name: string): Promise<string> {
