@@ -39,7 +39,7 @@ export const FeaturedModelPicker: React.FC<FeaturedModelPickerProps> = ({
 				const isSelected = i === selectedIndex
 
 				return (
-					<Box flexDirection="column" key={model.id} marginBottom={1}>
+					<Box flexDirection="column" key={`${model.id}-${model.labels[0] || "default"}`} marginBottom={1}>
 						<Box>
 							<Text color={isSelected ? COLORS.primaryBlue : undefined}>{isSelected ? "❯ " : "  "}</Text>
 							<Text bold color={isSelected ? COLORS.primaryBlue : "white"}>

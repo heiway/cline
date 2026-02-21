@@ -104,7 +104,7 @@ message Secrets {
   optional string oca_refresh_token = 42;
   optional string mcp_o_auth_secrets = 43;
   optional string cline_api_key = 44;
-  optional string openai_codex_oauth_credentials = 47;
+  optional string openai_codex_oauth_credentials = 49;
 }
 
 // NOTE: Add new fields under API_HANDLER_SETTINGS_FIELDS or USER_SETTINGS_FIELDS
@@ -258,7 +258,6 @@ message Settings {
   optional DictationSettings dictation_settings = 148;
   optional FocusChainSettings focus_chain_settings = 149;
   optional string custom_prompt = 150;
-  optional double auto_condense_threshold = 151;
   optional bool subagents_enabled = 153;
   optional bool enable_parallel_tool_calling = 154;
   optional bool background_edit_enabled = 155;
@@ -412,7 +411,6 @@ message UpdateSettingsRequest {
   optional string default_terminal_profile = 21;
   optional bool yolo_mode_toggled = 22;
   optional DictationSettings dictation_settings = 23;
-  optional double auto_condense_threshold = 24;
   optional bool multi_root_enabled = 25;
   optional string vscode_terminal_execution_mode = 27;
   optional int32 max_consecutive_mistakes = 28;

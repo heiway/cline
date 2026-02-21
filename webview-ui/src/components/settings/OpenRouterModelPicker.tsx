@@ -54,31 +54,31 @@ export interface OpenRouterModelPickerProps {
 // Featured models for Cline provider organized by tabs
 export const recommendedModels = [
 	{
+		id: "google/gemini-3.1-pro-preview",
+		description: "Latest Gemini release with 1m ctx window and strong coding performance",
+		label: "NEW",
+	},
+	{
 		id: "anthropic/claude-sonnet-4.6",
-		description: "Best balance of speed, cost, and quality",
-		label: "BEST",
+		description: "Latest Sonnet release with strong coding and agent performance",
+		label: "NEW",
 	},
 	{
 		id: "anthropic/claude-opus-4.6",
 		description: "Most intelligent model for agents and coding",
-		label: "NEW",
+		label: "BEST",
 	},
 	{
 		id: "openai/gpt-5.2-codex",
 		description: "OpenAI's latest with strong coding abilities",
 		label: "HOT",
 	},
-	{
-		id: "google/gemini-3-pro-preview",
-		description: "1M context window for large codebases",
-		label: "1M CTX",
-	},
 ]
 
 export const freeModels = [
 	{
-		id: "anthropic/claude-sonnet-4.6",
-		description: "Claude Sonnet 4.6 with strong coding and agent performance, now available free in Cline",
+		id: "minimax/minimax-m2.5",
+		description: "MiniMax-M2.5 is a lightweight, state-of-the-art LLM optimized for coding and agentic workflows",
 		label: "FREE",
 	},
 	{
@@ -98,7 +98,7 @@ export const freeModels = [
 	},
 ]
 
-const FREE_CLINE_MODELS = [...freeModels.map((m) => m.id), "anthropic/claude-4.6-sonnet"]
+const FREE_CLINE_MODELS = freeModels.map((m) => m.id)
 
 const OpenRouterModelPicker: React.FC<OpenRouterModelPickerProps> = ({
 	isPopup,
